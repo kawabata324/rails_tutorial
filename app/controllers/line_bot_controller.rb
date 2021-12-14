@@ -42,6 +42,7 @@ class LineBotController < ApplicationController
       'applicationId' => ENV['RAKUTEN_APPID'],
       'hits' => 5,
       'responseType' => 'small',
+      'datumType' => 1,
       'formatVersion' => 2
     }
     response = http_client.get(url,query)
@@ -49,18 +50,142 @@ class LineBotController < ApplicationController
 
     if response.key?('error')
       text = "この検索条件に該当する宿泊施設が見つかりませんでした。\n条件を変えて検索してください"
-    else
-      text = ''
-      response['hotels'].each do | hotel |
-        text <<
-        hotel[0]['hotelBasicInfo']['hotelName'] + "\n" +
-        hotel[0]['hotelBasicInfo']['hotelInformationUrl'] + "\n" + "\n"
-      end
+      {
+        type: 'text',
+        text: text
+      }
     end
-
-    message = {
-      type: 'text',
-      text: text
+      {
+      "type": "flex",
+      "altText": "宿泊検索の結果です",
+      "contents": set_carousel(response['hotels'])
     }
   end
+
+  def set_carousel(hotels)
+    bubbles=[]
+    hotels.each do |hotel|
+      bubbles.push set_bubble(hotel[0]['hotelBasicInfo'])
+    end
+
+    {
+      type: 'carousel',
+      contents: bubbles
+    }
+  end
+
+  def set_bubble(hotel)
+      {
+        "type": "bubble",
+        "hero": {
+                  "type": "image",
+                  "url": hotel['hotelImageUrl'],
+                  "size": "full",
+                  "aspectRatio": "20:13",
+                  "aspectMode": "cover",
+                  "action": {
+                    "type": "uri",
+                    "uri": hotel['hotelInformationUrl']
+                  }
+                },
+        "body": {
+          "type": "box",
+          "layout": "vertical",
+          "contents": [
+            {
+              "type": "text",
+              "text": hotel['hotelName'],
+              "weight": "bold",
+              "size": "md",
+              "wrap": true
+            },
+            {
+              "type": "box",
+              "layout": "vertical",
+              "margin": "lg",
+              "spacing": "sm",
+              "contents": [
+                {
+                  "type": "box",
+                  "layout": "baseline",
+                  "spacing": "sm",
+                  "contents": [
+                    {
+                      "type": "text",
+                      "text": "住所",
+                      "color": "#aaaaaa",
+                      "size": "sm",
+                      "flex": 1
+                    },
+                    {
+                      "type": "text",
+                      "text": hotel['address1'] + hotel['address2'],
+                      "wrap": true,
+                      "color": "#666666",
+                      "size": "sm",
+                      "flex": 5
+                    }
+                  ]
+                },
+                {
+                  "type": "box",
+                  "layout": "baseline",
+                  "spacing": "sm",
+                  "contents": [
+                    {
+                      "type": "text",
+                      "text": '料金',
+                      "color": "#aaaaaa",
+                      "size": "sm",
+                      "flex": 1
+                    },
+                    {
+                      "type": "text",
+                      "text": '¥' + hotel['hotelMinCharge'].to_s(:delimited) + '~',
+                      "wrap": true,
+                      "color": "#666666",
+                      "size": "sm",
+                      "flex": 5
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "footer": {
+          "type": "box",
+          "layout": "vertical",
+          "spacing": "sm",
+          "contents": [
+            {
+              "type": "button",
+              "style": "link",
+              "height": "sm",
+              "action": {
+                "type": "uri",
+                "label": "電話する",
+                "uri": 'tel:' + hotel['telephoneNo']
+              }
+            },
+            {
+              "type": "button",
+              "style": "link",
+              "height": "sm",
+              "action": {
+                "type": "uri",
+                "label": "地図を見る",
+                "uri": 'https://www.google.com/maps?q=' + hotel['latitude'].to_s + ',' + hotel['longitude'].to_s
+              }
+            },
+            {
+              "type": "spacer",
+              "size": "sm"
+            }
+          ],
+          "flex": 0
+        }
+      }
+  end
+
 end
